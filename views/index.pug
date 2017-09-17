@@ -1,0 +1,15 @@
+extends layout
+
+block content
+	if flag
+		table.table.table-striped
+			each record, index in data
+				tr
+					td= index
+					each value, key in record
+						td= value
+					td
+						a.btn.btn-default(href='/del-process?id='+record.id) 삭제
+		a.btn.btn-default(href='/post')|회원추가
+	else
+		h1 DB연결 오류입니다.

@@ -56,8 +56,20 @@ app.post('/process-post', function (req, res) {
 		}else {
 			res.render('result', {msg:'성공적으로 입력되었습니다.'})
 		}
-	})
-})
+	});
+});
+
+app.get('/del-process', function (req, res) {
+	console.log(req.query.id);
+	var sql = "Delete from 'user' where 'id' = '"+req.query.id+"'";
+	client.query(sql, function (err) {
+		if(err){
+			res.render('result', {msg:error.code});
+		}else{
+			res.redirect(303, '/page');
+		}
+	});
+});
 
 app.listen(port, function () {
 	console.log('Express 엔진이 port '+ port +'에서 실행중입니다.')

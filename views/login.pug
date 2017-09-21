@@ -1,1 +1,20 @@
-login.pug
+extends layout
+
+block content
+	.row
+		.col-md-8.col-md-offset-1
+			.page-header 로그인
+	.row
+		.col-md-6.col-md-offset-1
+			form.form-horizontal(action='/process-login' method='POST')
+				.form-group
+					label.col-md-2.control-label(for='id') ID
+					.col-md-10
+						input.form-control(type='text', id='id', name='id', placeholder='ID입력')
+				.form-group
+					label.col-md-2.control-label(for='pw') 비밀번호
+					.col-md-10
+						input.form-control(type='password', id='pw', name='pw', placeholder='비밀번호 입력')
+				.form-group
+					.col-md-10.col-md-offset-2
+						button.btn.btn-default(type='submit') 로그인

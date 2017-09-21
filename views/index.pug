@@ -1,15 +1,30 @@
 extends layout
 
 block content
+	if flash
+		.alert.alert-dismissible(class='alert-' + flash.type)
+			button.close(type='button', data-dismiss='alert', aria-hidden='true') &times;
+			= flash.msg
+	.row(style='margin-bottom:10px;')
+		.col-md-2.pull-right
+			if login
+				a.btn.btn-warning(href='/log-out') 로그아웃
+			else
+				a.btn.btn-primary(href='/login') 로그인
 	if flag
-		table.table.table-striped
-			each record, index in data
-				tr
-					td= index
-					each value, key in record
-						td= value
-					td
-						a.btn.btn-default(href='/del-process?id='+record.id) 삭제
-		a.btn.btn-default(href='/post')|회원추가
+		.row
+			.col-md-10.col-md-offset-1
+				table.table.table-striped
+					each record, index in data
+						tr
+							td= index
+							each value, key in record
+								td= value
+							td
+								if level >= 8
+									a.btn.btn-default(href='/del-process?id=' + record.id) 삭제
+		.row
+			.col-md-2.pull-right
+				a.btn.btn-default(href='/post') 회원추가
 	else
 		h1 DB연결 오류입니다.

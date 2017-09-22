@@ -120,6 +120,36 @@ app.get('/log-out', function (req, res) {
 	res.redirect(303, '/page');
 });
 
+app.all('/board/:name?/:fun?/:id?', function (req, res) {
+	var name = req.params.name;
+	if(name === undefined){
+		name = "freeboard";
+	}
+	var fun = req.params.fun;
+	if(fun == undefined){
+		fun = 'view';
+	}
+
+	var boardName = {freeboard:"자유게시판", notice:"공지사항"};
+
+	if(boardName[name] == undefined){
+		fun = "error";
+	}
+	switch(fun){
+		case "write":
+			if(req.session.uid !== undefined){
+				return res.render('writeboard', {header:boardName[name], bindex:name, fun:'writeprocess'});
+			}else{
+				req.session.flashMsg = {type:'danger', msg:'로그인 후 글쓰기가 가능합니다'};
+				return res.redirect('back');
+			}
+			break;
+		default:
+			return res.render('error', {title:'잘못된 요청', msg:'잘못된 요청입니다'});
+			break;
+	}
+});
+
 app.listen(port, function () {
 	console.log('Express 엔진이 port '+ port +'에서 실행중입니다.')
 });

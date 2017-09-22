@@ -1,0 +1,26 @@
+extends layout
+
+block content
+	.row
+		.page-header.col-md-9.col-md-offset-1
+			h3 #{header} 글쓰기
+	.row
+		.col-md-7.col-md-offset-1
+			form.form-horizontal(action='/board/#{bindex}/#{fun}', method='post', enctype='multipart/form-data')
+				.form-group
+					label.col-md-2.control-label(for='title') 글제목
+					.col-md-10
+						input.form-control(type='text', name='title', id='title', placeholder='글 제목을 입력하세요', required= true, value= title)
+					
+				.form-group
+					label.col-md-2.control-label(for='content') 글내용
+					.col-md-10
+						textarea.form-control(id='content', name='content', rows=10, stylesheet='resize:none;', required=true)= con
+				.form-group
+					label.col-md-2.control-label(for='attachedFile') 업로드 파일
+					.col-md-10
+						input.form-control(type='file', name='attachedFile', id='attachedFile')
+						span.help-block 그림파일만 업로드 가능합니다.
+				.form-group
+					.col-md-2.col-md-offset-2
+						button.btn.btn-primary(type='submit') 작성완

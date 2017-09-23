@@ -2,6 +2,13 @@ var express = require('express');
 
 var http = require('http');
 var path = require('path');
+var fs = require('fs');
+var formidable = require('formidable');
+// var viewsCache = {};
+// var randString = require('./randString.js');
+// var mailer = require('./mailer.js');
+
+var options = {textPerPage:5, pagePerChapter:3}
 
 var app = express();
 var port = 3000;
@@ -39,6 +46,10 @@ var client = mysql.createConnection({
 });
 
 app.use(express.static(path.join(__dirname,'public')));
+
+app.get('/', function (req, res) {
+	res.redirect('/page');
+})
 
 app.get('/page', function(req, res){
 	var isLogin = req.session.user != undefined ? true : false;
@@ -135,14 +146,133 @@ app.all('/board/:name?/:fun?/:id?', function (req, res) {
 	if(boardName[name] == undefined){
 		fun = "error";
 	}
+	console.log(fun);
 	switch(fun){
 		case "write":
-			if(req.session.uid !== undefined){
-				return res.render('writeboard', {header:boardName[name], bindex:name, fun:'writeprocess'});
+			console.log(req.session.user);
+			if(req.session.user !== undefined){
+				return res.render('writeboard', {header:boardName[name], bindex:'freeboard', fun:'writeprocess'});
 			}else{
 				req.session.flashMsg = {type:'danger', msg:'로그인 후 글쓰기가 가능합니다'};
 				return res.redirect('back');
 			}
+			break;
+		case "writeprocess":
+			if(req.session.user == undefined){
+				req.session.flashMsg = {
+					type:'danger',
+					msg:'세션이 만료되었습니다. 다시 로그인해주세요'
+				}
+				return res.redirect(303, '/board/'+name+'/view');
+			} else {
+				var sql = 'INSERT INTO `' + name +'`(`title`, `content`, `date`, `uid`, `file`)	VALUES (? ,?, ?, ?, ?)';
+				var date = new Date();
+				var form = formidable.IncomingForm();
+
+				form.parse(req, function (err, fields, files) {
+					var uploadName = "";
+					if(files.attachedFile.name != ''){
+						var old_path = files.attachedFile.path;
+						var file_size = files.attachedFile.size;
+						var file_ext = files.attachedFile.name.split('.').pop(); // 확장자
+						var index = old_path.lastIndexOf('/') + 1;
+						var file_name = old_path.substr(index) + '.'+ file_ext;
+						var new_path = path.join(__dirname, 'public/uploads', file_name);
+						fs.readFile(old_path, function(err, data) {
+							fs.writeFile(new_path, data, function(err) {
+								fs.unlink(old_path, function(err) {
+									if (err) {
+										return res.render('error', {title:'파일처리 실패', msg:'파일처리중 에러 발생 : ' + err});
+									} 
+								});
+							});
+						});
+						uploadName = '/uploads/' + file_name; //DB에 업로드할 이름을 지정
+					}
+					client.query(sql, [fields.title, fields.content, date, req.session.user.id, uploadName], function(error, result){
+						if(error){
+							res.render('error', {title:'DB에러(글삽입)', msg:error });
+						}else{
+							req.session.flashMsg = { type:'success', msg:'성공적으로 글이 작성되었습니다'};
+							return res.redirect(303, '/board/' + name + '/list/1');
+						}
+					});
+				});
+			}
+			break;
+		case "list":
+			var tpp = options.textPerPage;  //페이지당 글의 수
+			var ppc = options.pagePerChapter; // 챕터당 페이지 수
+			var nowPage = req.params.id; //현재 요청 페이지 받아오기.
+			var totalCnt = 0;
+			if(nowPage == undefined){
+				nowPage = 1; //기본으로 1페이지를 보게한다.
+			}
+			var sql = 'SELECT count(wid) as totalCnt FROM `' + name +'`';  //전체 글의 개수를 가져온다.
+			client.query(sql, function(error, result){
+				if(error){
+					res.render('error', {title:'DB에러(게시판 글 수 세기)', msg:error });
+				}else{
+					totalCnt = result[0].totalCnt; //글 개수 받아오고
+					var totalPageCnt = Math.floor(totalCnt / tpp) + 1;
+					if(totalCnt % tpp == 0 ) totalPageCnt -= 1; //나누어 떨어진다면 딱 그 페이지 만큼만
+					
+					var totalChapterCnt = Math.floor(totalPageCnt / ppc) + 1;
+					if(totalPageCnt % ppc == 0) totalChapterCnt -= 1;
+					
+					var nowChapter = Math.floor(nowPage / (ppc+1));
+					var start = (nowPage -1) * tpp;
+					
+					//1페이지 분량만큼 페이지 가져오기.
+					sql = 'SELECT `wid`, `title`, `content`, `date`, b.`uid`, u.`name`, `file` FROM `'
+						+ name +'` as b, `user` as u WHERE u.id = b.uid ORDER BY b.`wid` DESC LIMIT ?, ?';
+					
+					client.query(sql, [start, tpp], function(error, result){
+						if(error){
+							res.render('error', {title:'DB에러(게시판 리스트 받기)', msg:error });
+						}else{
+							res.render('boardlist', {
+								title:boardName[name],
+								data:result, 
+								length:result.length,
+								board:name, 
+								page:nowPage,
+								chapter:nowChapter,
+								tpp:tpp,
+								ppc:ppc,
+								totalPage:totalPageCnt,
+								totalChapter:totalChapterCnt
+							});
+						}
+					});
+				}
+			});
+			break;
+		case "view":
+			var wid = req.params.id;	//현재 요청한 글번호
+			if(wid == undefined){
+				return res.render('error', {title:'글번호 에러', msg:'요청하신 글이 존재하지 않습니다'})
+			}
+			var sql = 'SELECT `wid`, `title`, `content`, `date`, b.`uid`, u.`name`, `file` FROM `'+ name +'` as b,`user` as u WHERE u.id = b.uid AND b.wid = ?';
+			client.query(sql, [wid], function (error, result) {
+				if(error){
+					return res.render('error', {title:'DB 에러 (글정보 로딩)', msg:error});
+				} else {
+					if(result.length == 1){
+						var isWriter = false;
+						console.log(req.session.user);
+						console.log(result[0]);
+						if(req.session.user != undefined && req.session.user.id == result[0].uid){
+							isWriter = true;
+							res.render('viewboard', {data:result[0], writer:isWriter, board:name});
+						}else{
+							req.session.flashMsg = {type:'warning', msg:'해당하는 글이 없습니다.'}
+							console.log('해당하는글 없씀')
+							return res.redirect('back');
+						}
+					}
+				}
+			});
 			break;
 		default:
 			return res.render('error', {title:'잘못된 요청', msg:'잘못된 요청입니다'});

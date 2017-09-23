@@ -1,0 +1,37 @@
+extends layout
+
+block content
+	.row
+		.panel.panel-success
+			.panel-heading
+				h4.panel-title= data.title
+			.panel-body
+				.row
+					.col-md-4.col-sm-6.col-xs-6
+						span.label.label-primary 글번호 : #{data.wid}
+					.col-md-4.text-center.hidden-xs.hidden-sm
+						- var dateform = new Date(data.date)
+						
+						- var resultDate = dateform.getFullYear() + '-' + (dateform.getMonth() + 1) + '-' + dateform.getDate()
+						span.label.label-info= resultDate
+					.col-md-4.text-right.col-sm-6.col-xs-6
+						span.label.label-primary #{data.name} ( #{data.uid} )
+					if data.file != undefined
+						.col-md-12.text-right
+							| 첨부파일 :
+							a.btn.btn-info.btn-sm(href=data.file)
+								span.glyphicon.glyphicon-file
+								| 다운받기
+	.row
+		.panel.panel-default
+			.panel-body
+				- var brText = data.content.replace(/\n/g, '<br>');
+				!= brText
+	
+	if writer
+		.row
+			.col-md-3.col-md-offset-9.text-right
+				.col-md-6
+					a.btn.btn-primary(href='/board/' + board + '/mod/' + data.wid) 수정
+				.col-md-6
+					a.btn.btn-warning(href='/board/' + board + '/del/' + data.wid) 삭제

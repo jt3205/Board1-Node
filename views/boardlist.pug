@@ -1,0 +1,65 @@
+extends layout
+
+block content
+	.row
+		.page-header.col-md-9.col-md-offset-1
+			h3= title
+	.row
+		//- 테이블 출력
+		.col-md-11.col-md-offset-1
+			table.table.table-striped
+				thead
+					tr
+						th.text-center.col-md-2.hidden-sm.hidden-xs 글번호
+						th.text-center.col-md-6.col-sm-9.col-xs-9 글제목
+						th.text-center.col-md-2.hidden-sm.hidden-xs 작성일
+						th.text-center.col-md-2.col-sm-3.col-xs-3 작성자
+				tbody
+					if length == 0
+						tr
+							th.text-center(colspan=4) 게시글이 없습니다.
+					else
+						each row, index in data
+							tr
+								td.text-center.col-md-2.hidden-sm.hidden-xs= row.wid
+								td.text-center.col-md-6.col-sm-9.col-xs-9
+									a(href='/board/' + board + '/view/' + row.wid , stylesheet='text-decoration:none;')= row.title
+								row.title
+								- var dateform = new Date(row.date)
+								- var resultDate = dateform.getFullYear() + '-' + (dateform.getMonth() + 1) + '-' + dateform.getDate()
+								td.text-center.col-md-2.hidden-sm.hidden-xs= resultDate
+								td.text-center.col-md-2.col-sm-3.col-xs-3= row.name + '(' + row.uid + ')'
+	
+	//- 여기서부터 새글 쓰기 버튼
+	if login
+		.row
+			.col-md-2.col-md-offset-1 
+				a.btn.btn-primary(href='/board/' + board + '/write') 새글쓰기
+	
+	//- 여기서부터 페이지네이션 출력
+	.row
+		.col-md-11.col-md-offset-1.text-center
+			ul.pagination
+				if chapter == 0
+					li.disabled
+						a(href='#', aria-label='Previous')
+							span(aria-hidden='true') &laquo;
+				else
+					li
+						-var prepage = (chapter) * ppc
+						a(href='/board/' + board + '/list/' + prepage, aria-label='Previous')
+							span(aria-hidden='true') &laquo;
+				
+				-var i = chapter * ppc + 1
+				-while(i <= totalPage && i <= (chapter + 1) * ppc)
+					if i == page
+						li.active
+							a(href= '/board/' + board + '/list/' + i)= i
+					else
+						li
+							a(href= '/board/' + board + '/list/' + i)= i
+					- i = i+1				
+				
+				if chapter == (totalChapter - 1)
+					li.disabled
+						a(href='#', aria-label='Next')

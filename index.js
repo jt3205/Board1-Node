@@ -11,7 +11,7 @@ var formidable = require('formidable');
 var options = {textPerPage:5, pagePerChapter:3}
 
 var app = express();
-var port = 3000;
+var port = 3242;
 
 var credentials = require('./secret.js');
 
@@ -264,16 +264,154 @@ app.all('/board/:name?/:fun?/:id?', function (req, res) {
 						console.log(result[0]);
 						if(req.session.user != undefined && req.session.user.id == result[0].uid){
 							isWriter = true;
-							res.render('viewboard', {data:result[0], writer:isWriter, board:name});
-						}else{
-							req.session.flashMsg = {type:'warning', msg:'해당하는 글이 없습니다.'}
-							console.log('해당하는글 없씀')
-							return res.redirect('back');
 						}
+						res.render('viewboard', {data:result[0], writer:isWriter, board:name});
+					}else{
+						req.session.flashMsg = { type:'warning', msg:'해당하는 글이 없습니다.'};
+						return res.redirect('back');
 					}
 				}
 			});
 			break;
+			case "mod":
+			if(req.session.uid == undefined){ //로그인되어 있지 않다면 수정할 수 없다.
+				req.session.flashMsg = { type:'warning', msg:'글을 수정할 권한이 없습니다.'};
+				return res.redirect('back');
+			}
+			var wid = req.params.id;
+			if(wid == undefined){
+				req.session.flashMsg = { type:'warning', msg:'잘못된 요청입니다.'};
+				return res.redirect('back');
+			}
+			var sql = 'SELECT `wid`, `title`, `content`, `date`, b.`uid`, u.`uname`, `file` FROM `'
+				+ name +'` as b,`user` as u WHERE u.uid = b.uid AND b.wid = ?';
+				
+			DB.client.query(sql, [wid], function(error, result){
+				if(error){
+					return res.render('error', {title:'DB 에러(글정보 로딩)', msg:error});
+				}else {
+					if(result.length == 1){
+						if(result[0].uid != req.session.uid){  //다른 세션으로 수정요청시
+							req.session.flashMsg = { type:'warning', msg:'글을 수정할 권한이 없습니다.'};
+							return res.redirect('back');
+						}else {
+							var content = result[0].content;
+							var title = result[0].title;
+							
+							return res.render('writeboard',
+								{header:boardName[name], bindex:name, fun:'modprocess/'+wid, 
+								con:content, title:title});
+						}
+					}else {  //해당 글이 존재 하지 않을 때.
+						req.session.flashMsg = { type:'warning', msg:'해당하는 글이 없습니다.'};
+						return res.redirect('back');
+					}
+				}
+			});
+			break;
+		case 'modprocess':
+			//글 수정 프로세스.
+			if(req.session.user == undefined){ 	//로그인되어 있지 않다면 수정할 수 없다.
+				req.session.flashMsg = { type:'warning', msg:'잘못된 요청입니다.'};
+				return res.redirect('back');
+			}
+			var wid = req.params.id;
+			if(wid == undefined){
+				req.session.flashMsg = { type:'warning', msg:'해당하는 글이 없습니다.'};
+				return res.redirect('back');
+			}
+			var sql = 'SELECT `uid`, `file` FROM `'	+ name +'` WHERE wid = ?';
+			client.query(sql, [wid], function(error, result){
+				if(error){
+					return res.render('error', {title:'DB 에러(글정보 수정-1)', msg:error});
+				}else {
+					if(result.length == 1){
+						if(result[0].uid != req.session.user.id){  //다른 세션으로 수정요청시
+							req.session.flashMsg = { type:'warning', msg:'글을 수정할 권한이 없습니다.'};
+							return res.redirect('back');
+						}else {
+							//여기에 수정코드
+							var date = new Date();
+							var form = formidable.IncomingForm();
+							
+							form.parse(req, function(err, fields, files){
+								var uploadName = "";
+								if(files.attachedFile.name != ''){ //파일이 업로드 되었을 경우
+									var old_path = files.attachedFile.path, file_size = files.attachedFile.size,
+										file_ext = files.attachedFile.name.split('.').pop(),
+										//pop은 배열의 맨 마지막 요소를 추출함. 맨 앞을 추출할 때는 shift
+										index = old_path.lastIndexOf('/') + 1, 
+										file_name = old_path.substr(index) + '.' + file_ext, 
+										//임시 파일명으로 그대로 업로드.
+										new_path = path.join(__dirname,'../public/uploads/', file_name);
+								
+									fs.readFile(old_path, function(err, data) {
+										fs.writeFile(new_path, data, function(err) {
+											fs.unlink(old_path, function(err) {
+												if (err) {
+													return res.render('error', {title:'파일처리 실패', msg:'파일처리중 에러 발생 : ' + err});
+												} 
+											});
+										});
+									});
+									uploadName = '/uploads/' + file_name; //DB에 업로드할 이름을 지정
+								}
+								var sql = 'UPDATE `' + name + '` SET `title` = ?, `content` = ?, `date` = ?';
+								if(uploadName != ''){
+									sql += ", `file` = '"+ uploadName + "'";
+								}
+								sql += ' WHERE `wid` = ?';
+								client.query(sql, [fields.title, fields.content, date, wid], function(error, result){
+									if(error){
+										res.render('error', {title:'DB에러(글수정)', msg:error });
+									}else{
+										req.session.flashMsg = { type:'success', msg:'성공적으로 글이 수정되었습니다'};
+										return res.redirect(303, '/board/' + name + '/view/' + wid);
+									}
+								});
+							});
+							
+						}
+					}else {  //해당 글이 존재 하지 않을 때.
+						req.session.flashMsg = { type:'warning', msg:'해당하는 글이 없습니다.'};
+						return res.redirect('back');
+					}
+				}
+			});
+			break;
+		case 'del':
+			var wid = req.params.id;
+			if(req.session.user == undefined || wid == undefined){
+				req.session.rlashMsg = {type:'warning', msg:'잘못된 요청입니다'};
+				return res.redirect('back');
+			}
+			var sql = 'SELECT `uid`, `file` FROM `'	+ name +'` WHERE wid = ?';
+			client.query(sql, [wid], function (error, result) {
+				if(error){
+					return res.render('error', {title:'DB 에러(글정보 수정-1)', msg:error});
+				} else {
+					if(result.length == 1){
+						if(result[0].uid == req.session.user.id){
+							sql = "DELETE FROM `" + name + '` WHERE `wid` = ?';
+							client.query(sql, [wid], function (error, result) {
+								if(error){
+									return res.render('error', {title:'DB 에러(글삭제)', msg:error});
+								} else {
+									req.session.flashMsg = { type:'success', msg:'글을 성공적으로 삭제하였습니다.'};
+									return res.redirect(303, '/board/' + name + '/list/1');
+								}
+							});
+						} else {							
+							req.session.flashMsg = { type:'warning', msg:'글을 수정할 권한이 없습니다.'};
+							return res.redirect('back');
+						}
+					}else{
+						req.session.flashMsg = { type:'warning', msg:'해당하는 글이 없습니다.'};
+						return res.redirect('back');
+
+					}
+				}
+			});
 		default:
 			return res.render('error', {title:'잘못된 요청', msg:'잘못된 요청입니다'});
 			break;

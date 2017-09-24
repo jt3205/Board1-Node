@@ -273,7 +273,7 @@ app.all('/board/:name?/:fun?/:id?', function (req, res) {
 				}
 			});
 			break;
-			case "mod":
+		case "mod":
 			if(req.session.uid == undefined){ //로그인되어 있지 않다면 수정할 수 없다.
 				req.session.flashMsg = { type:'warning', msg:'글을 수정할 권한이 없습니다.'};
 				return res.redirect('back');
@@ -412,6 +412,7 @@ app.all('/board/:name?/:fun?/:id?', function (req, res) {
 					}
 				}
 			});
+			break;
 		default:
 			return res.render('error', {title:'잘못된 요청', msg:'잘못된 요청입니다'});
 			break;

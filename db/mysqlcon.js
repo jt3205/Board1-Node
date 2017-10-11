@@ -1,11 +1,11 @@
 var mysql = require('mysql');
 
 var client = mysql.createConnection({
-	host : 'www.gmsgondr.net',
-	user:'info3',
-	password:'1234',
-	database:'info3'
-});
+	host : '',
+	user:'',
+	password:'',
+	database:''
+})
 client.connect(function (err) {
 	client.query('Select * from user', function (err, result, fields) {
 		if(err){
